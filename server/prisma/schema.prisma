@@ -1,0 +1,253 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+model User {
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique
+  password           String
+  fullName           String?
+  affiliateOwner     Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  records            Record[]
+  trainings          Training[]
+  monthlyGoal        Int?
+  phone              String?
+  logo               String?
+  classSchedules     ClassSchedule[]
+  Plan               Plan[]
+  Affiliate          Affiliate[]
+  AffiliateTrainer   AffiliateTrainer[]
+  classAttendances   ClassAttendee[]
+  credit             Credit[]
+  UserPlan           UserPlan[]
+  homeAffiliate      Int?
+  classLeaderboard   ClassLeaderboard[]
+  members            Members[]
+  transactions       transactions[]
+  creditTransactions CreditTransaction[]
+}
+
+model Credit {
+  id                 Int                 @id @default(autoincrement())
+  userId             Int
+  credit             Float               @default(0.0)
+  affiliateId        Int
+  affiliate          Affiliate           @relation(fields: [affiliateId], references: [id])
+  user               User                @relation(fields: [userId], references: [id])
+  creditTransactions CreditTransaction[]
+
+  @@unique([userId, affiliateId])
+}
+
+model CreditTransaction {
+  id           Int       @id @default(autoincrement())
+  paymentRef   String
+  userId       Int
+  creditAmount Float
+  decrease     Boolean   @default(false)
+  affiliateId  Int
+  creditId     Int
+  credit       Credit    @relation(fields: [creditId], references: [id])
+  affiliate    Affiliate @relation(fields: [affiliateId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+  createdAt    DateTime  @default(now())
+  description  String
+}
+
+model Training {
+  id        Int        @id @default(autoincrement())
+  type      String
+  wodName   String?
+  wodType   String? // For Time, EMOM, Tabata, AMRAP
+  date      DateTime?
+  score     String?
+  userId    Int
+  user      User       @relation(fields: [userId], references: [id])
+  exercises Exercise[]
+}
+
+model Exercise {
+  id           Int      @id @default(autoincrement())
+  exerciseData String
+  trainingId   Int
+  training     Training @relation(fields: [trainingId], references: [id])
+}
+
+model Record {
+  id     Int       @id @default(autoincrement())
+  type   String?
+  name   String?
+  date   DateTime?
+  score  String?
+  weight Float?
+  time   String?
+  userId Int
+  user   User      @relation(fields: [userId], references: [id])
+}
+
+model defaultWOD {
+  id          Int    @id @default(autoincrement())
+  name        String @unique
+  type        String
+  description String
+}
+
+model ClassSchedule {
+  id             Int                @id @default(autoincrement())
+  trainingType   String?
+  trainingName   String
+  time           DateTime
+  duration       Int
+  trainer        String?
+  memberCapacity Int
+  location       String?
+  repeatWeekly   Boolean            @default(false)
+  ownerId        Int
+  owner          User               @relation(fields: [ownerId], references: [id])
+  affiliateId    Int
+  affiliate      Affiliate          @relation(fields: [affiliateId], references: [id])
+  seriesId       Int?
+  wodName        String?
+  wodType        String?
+  description    String?
+  canRegister    Boolean            @default(false)
+  freeClass      Boolean            @default(false)
+  attendees      ClassAttendee[]
+  leaderboard    ClassLeaderboard[]
+}
+
+model Plan {
+  id             Int            @id @default(autoincrement())
+  name           String
+  validityDays   Int
+  price          Float
+  additionalData String?
+  sessions       Int
+  ownerId        Int
+  owner          User           @relation(fields: [ownerId], references: [id])
+  transactions   transactions[]
+}
+
+model UserPlan {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  affiliateId  Int
+  planId       Int // kui tahad viidata Plan.id-le
+  planName     String
+  validityDays Int
+  price        Float
+  purchasedAt  DateTime @default(now())
+  endDate      DateTime
+  sessionsLeft Int
+}
+
+model Affiliate {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  address            String
+  trainingType       String
+  email              String?
+  phone              String?
+  iban               String?
+  bankName           String?
+  ownerId            Int
+  logo               String?
+  owner              User                @relation(fields: [ownerId], references: [id])
+  trainers           AffiliateTrainer[]
+  ClassSchedule      ClassSchedule[]
+  members            Members[]
+  todayWOD           todayWOD[]
+  transactions       transactions[]
+  credit             Credit[]
+  creditTransactions CreditTransaction[]
+}
+
+model AffiliateTrainer {
+  id          Int       @id @default(autoincrement())
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+  trainerId   Int
+  trainer     User      @relation(fields: [trainerId], references: [id])
+
+  // Optional: @@unique([affiliateId, trainerId]) to prevent duplicates
+  @@unique([affiliateId, trainerId])
+}
+
+model ClassAttendee {
+  id            Int           @id @default(autoincrement())
+  classId       Int
+  classSchedule ClassSchedule @relation(fields: [classId], references: [id])
+  userId        Int
+  user          User          @relation(fields: [userId], references: [id])
+  userPlanId    Int
+  createdAt     DateTime      @default(now())
+  checkIn       Boolean       @default(false)
+
+  @@unique([classId, userId]) // vältimaks duplikaatregistratsioone
+}
+
+model ClassLeaderboard {
+  id            Int           @id @default(autoincrement())
+  classId       Int
+  classSchedule ClassSchedule @relation(fields: [classId], references: [id])
+  userId        Int
+  user          User          @relation(fields: [userId], references: [id])
+  scoreType     String
+  score         String
+  createdAt     DateTime      @default(now())
+}
+
+model Members {
+  id            Int            @id @default(autoincrement())
+  affiliateId   Int
+  userId        Int
+  visitCount    Int?           @default(0)
+  addScoreCount Int?           @default(0)
+  atRisk        Boolean        @default(false)
+  ristData      String?
+  isActive      Boolean        @default(true)
+  user          User           @relation(fields: [userId], references: [id])
+  affiliate     Affiliate      @relation(fields: [affiliateId], references: [id])
+  transactions  transactions[]
+
+  // iga liige võib kuuluda ainult ühte affiliate'i
+  @@unique([userId, affiliateId])
+}
+
+model todayWOD {
+  id          Int       @id @default(autoincrement())
+  wodName     String?
+  type        String
+  description String
+  date        DateTime
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+}
+
+model transactions {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
+  amount        Float
+  invoiceNumber String
+  description   String
+  createdAt     DateTime @default(now())
+  status        String
+  type          String
+  affiliateId   Int
+  planId        Int?
+
+  plan      Plan?     @relation(fields: [planId], references: [id])
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id])
+  memberId  Int
+  member    Members   @relation(fields: [memberId], references: [id])
+}
